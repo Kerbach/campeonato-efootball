@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<title>Campeonato eFootball</title>
+
+<style>
+body{
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg,#141420,#2f2f4f);
+  color:white;
+  text-align:center;
+  padding:25px;
+}
+
+h1{margin-bottom:5px}
+
+.card{
+  background:#232336;
+  padding:18px;
+  margin:18px auto;
+  border-radius:14px;
+  width:fit-content;
+  box-shadow:0 0 18px rgba(0,0,0,.4);
+}
+
+table{
+  border-collapse:collapse;
+  margin:auto;
+}
+
+th,td{
+  padding:8px 12px;
+  border-bottom:1px solid #444;
+}
+
+th{background:#35355a}
+
+input{
+  width:45px;
+  text-align:center;
+  border:none;
+  border-radius:6px;
+  padding:4px;
+}
+
+button{
+  margin-top:15px;
+  padding:8px 14px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  background:#4CAF50;
+  color:white;
+}
+
+/* ===== Tela campeão ===== */
+#championScreen{
+  position:fixed;
+  inset:0;
+  background:linear-gradient(45deg,#111,#1b1b40);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  font-size:48px;
+  font-weight:bold;
+  animation:fade .6s;
+}
+
+@keyframes fade{
+  from{opacity:0}
+  to{opacity:1}
+}
+
+.trophy{
+  font-size:100px;
+  animation:bounce 1s infinite alternate;
+}
+
+@keyframes bounce{
+  from{transform:translateY(0)}
+  to{transform:translateY(-20px)}
+}
+</style>
+</head>
+
+<body>
+
+<h1>🏆 Campeonato eFootball</h1>
+
+<div class="card">
+  <h2>📊 Classificação</h2>
+  <table id="ranking"></table>
+</div>
+
+<div class="card">
+  <h2>⚽ Fase de Grupos</h2>
+  <table id="games"></table>
+</div>
+
+<div class="card">
+  <h2>🥉 3º Lugar</h2>
+  <table id="third"></table>
+</div>
+
+<div class="card">
+  <h2>🥇 Final</h2>
+  <table id="final"></table>
+</div>
+
+<button onclick="resetAll()">Resetar campeonato</button>
+
+<!-- Tela campeão -->
+<div id="championScreen">
+  <div class="trophy">🏆</div>
+  <div id="championName"></div>
+</div>
+
+<script>
+const players=["Walter","Luis","Bolacha","Mateus"];
+
+const matches=[
+["Walter","Luis"],["Bolacha","Mateus"],
+["Walter","Bolacha"],["Luis","Mateus"],
+["Walter","Mateus"],["Luis","Bolacha"],
+["Luis","Walter"],["Mateus","Bolacha"],
+["Bolacha","Walter"],["Mateus","Luis"],
+["Mateus","Walter"],["Bolacha","Luis"]
+];
+
+let results=JSON.parse(localStorage.getItem("results")||"{}");
+let finalData=JSON.parse(localStorage.getItem("final")||"{}");
+let thirdData=JSON.parse(localStorage.getItem("third")||"{}");
+
+function save(){
+ localStorage.setItem("results",JSON.stringify(results));
+ localStorage.setItem("final",JSON.stringify(finalData));
+ localStorage.setItem("third",JSON.stringify(thirdData));
+}
+
+function getPoints(a,b){
+ if(a===b) return [1,1];
+ const d=Math.abs(a-b);
+ if(a>b) return [d>=2?3:2,0];
+ return [0,d>=2?3:2];
+}
+
+function calculate(){
+ const t={};
+
+ players.forEach(p=>t[p]={pts:0,g:0,s:0});
+
+ matches.forEach((m,i)=>{
+   const r=results[i];
+   if(!r)return;
+   const[g1,g2]=r;
+   const[p1,p2]=getPoints(g1,g2);
+
+   t[m[0]].pts+=p1;
+   t[m[1]].pts+=p2;
+
+   t[m[0]].g+=g1;
+   t[m[1]].g+=g2;
+
+   t[m[0]].s+=g1-g2;
+   t[m[1]].s+=g2-g1;
+ });
+
+ return Object.entries(t)
+  .sort((a,b)=>b[1].pts-a[1].pts||b[1].s-a[1].s||b[1].g-a[1].g);
+}
+
+function renderRanking(){
+ const rank=calculate();
+ const el=document.getElementById("ranking");
+
+ el.innerHTML="<tr><th>#</th><th>Jogador</th><th>Pts</th><th>Saldo</th><th>Gols</th></tr>";
+
+ rank.forEach((r,i)=>{
+   el.innerHTML+=`<tr>
+   <td>${i+1}</td><td>${r[0]}</td>
+   <td>${r[1].pts}</td><td>${r[1].s}</td><td>${r[1].g}</td></tr>`;
+ });
+
+ renderFinals(rank);
+}
+
+function renderGames(){
+ const el=document.getElementById("games");
+
+ el.innerHTML="<tr><th>#</th><th>A</th><th></th><th></th><th>B</th></tr>";
+
+ matches.forEach((m,i)=>{
+  const r=results[i]||["",""];
+  el.innerHTML+=`
+  <tr>
+   <td>${i+1}</td>
+   <td>${m[0]}</td>
+   <td><input type=number value="${r[0]}" onchange="upd(${i},0,this.value)"></td>
+   <td>x</td>
+   <td><input type=number value="${r[1]}" onchange="upd(${i},1,this.value)"></td>
+  </tr>`;
+ });
+}
+
+function upd(i,p,v){
+ if(!results[i])results[i]=["",""];
+ results[i][p]=Number(v);
+ save();
+ renderRanking();
+}
+
+function renderFinals(rank){
+ const first=rank[0][0];
+ const second=rank[1][0];
+ const third=rank[2][0];
+ const fourth=rank[3][0];
+
+ // 3º lugar
+ document.getElementById("third").innerHTML=`
+ <tr>
+  <td>${third}</td>
+  <td><input value="${thirdData[0]||""}" onchange="setThird(0,this.value)"></td>
+  <td>x</td>
+  <td><input value="${thirdData[1]||""}" onchange="setThird(1,this.value)"></td>
+  <td>${fourth}</td>
+ </tr>`;
+
+ // final
+ document.getElementById("final").innerHTML=`
+ <tr>
+  <td>${first}</td>
+  <td><input value="${finalData[0]||""}" onchange="setFinal(0,this.value)"></td>
+  <td>x</td>
+  <td><input value="${finalData[1]||""}" onchange="setFinal(1,this.value)"></td>
+  <td>${second}</td>
+ </tr>`;
+}
+
+function setThird(p,v){
+ thirdData[p]=Number(v);
+ save();
+}
+
+function setFinal(p,v){
+ finalData[p]=Number(v);
+ save();
+
+ if(finalData[0]!==undefined && finalData[1]!==undefined){
+   const champ = finalData[0]>finalData[1] ?
+     calculate()[0][0] :
+     calculate()[1][0];
+
+   showChampion(champ);
+ }
+}
+
+function showChampion(name){
+ const screen=document.getElementById("championScreen");
+ document.getElementById("championName").innerText="CAMPEÃO: "+name;
+ screen.style.display="flex";
+ setTimeout(()=>screen.style.display="none",4000);
+}
+
+function resetAll(){
+ if(confirm("Apagar tudo?")){
+  localStorage.clear();
+  location.reload();
+ }
+}
+
+renderGames();
+renderRanking();
+</script>
+
+</body>
+</html>
